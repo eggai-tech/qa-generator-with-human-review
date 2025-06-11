@@ -4,3 +4,10 @@ pyyaml>=6.0
 
 # For human review
 label-studio>=1.18.0
+# add matplotlib and seaborn for visualization
+matplotlib>=3.0.0
+seaborn>=0.11.0
+# install sentence-transformers for embeddings
+sentence-transformers>=2.0.0
+# install markdownify for the html to markdown conversion
+markdownify>=0.9.0

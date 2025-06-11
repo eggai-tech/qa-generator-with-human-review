@@ -12,3 +12,84 @@ generation:
   temperature: 0.7      # Higher = more creative, lower = more deterministic
   chunk_size: 2000      # Size of text chunks for processing
   num_pairs: 5          # Number of QA pairs to generate per chunk
+
+# prompts for different tasks
+prompts:
+  # Summary generation prompt
+  summary: |
+    Summarize this document in 3-5 sentences, focusing on the main topic and key concepts.
+
+  # QA pair generation prompt
+  qa_generation: |
+    Create {num_pairs} question-answer pairs from this text for LLM training.
+
+    Rules:
+    1. Questions must be about important facts in the text
+    2. Answers must be directly supported by the text
+    3. Return JSON format only:
+
+    [
+      {{
+        "question": "Question 1?",
+        "answer": "Answer 1."
+      }},
+      {{
+        "question": "Question 2?",
+        "answer": "Answer 2."
+      }}
+    ]
+
+    Text:
+    {chunk_text}
+
+  # custom qa prompt
+  qa_generation_v1: |
+    Create {num_pairs} question-answer pairs from this text for RAG system evaluation.
+  
+    Rules:
+    1. Questions must be about important facts in the text
+    2. Answers must be directly supported by the text
+    3. Try to quote directly from the text when possible
+    4. Return JSON format only:
+    
+    [
+      {{
+        "question": "Question 1?",
+        "answer": "Answer 1."
+      }},
+      {{
+        "question": "Question 2?",
+        "answer": "Answer 2."
+      }}
+    ]
+    
+    Text:
+    {chunk_text}
+
+  # custom qa prompt
+  qa_generation_v2: |
+    You are creating question-answer pairs for benchmarking the RAG system in the financial domain.
+    Example questions include:
+      - What is the current stock price of a specific company?
+      - What are the main revenue drivers for a specific company?
+      - What are the key financial metrics for a specific company in a given quarter?
+
+    Focus on the specific details of a particular issue of securities, including its price, terms, and conditions.
+
+    Create {num_pairs} high-quality question-answer pairs based ONLY on this text.
+
+    Rules:
+    1. Questions must be about important facts in the text
+    2. Answers must be directly supported by the text
+    3. Add some context to the question such as company names, financial instruments, etc.
+    Return ONLY valid JSON formatted as:
+    [
+      {
+        "question": "Detailed financial question?",
+        "answer": "Precise financial answer."
+      },
+      ...
+    ]
+
+    Text:
+    {chunk_text}

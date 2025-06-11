@@ -4,8 +4,11 @@ Generate QA pairs with source references (chunk location and character positions
 """
 import json
 from pathlib import Path
+from typing import Dict, Any
+
 from openai import OpenAI
 import yaml
+from tqdm import tqdm
 
 # Load configuration
 with open('configs/config.yaml', 'r') as f:
@@ -78,7 +81,7 @@ def find_answer_location(answer, chunk_text):
     
     return None
 
-def generate_qa_pairs_with_refs(chunk_data, num_pairs=None):
+def generate_qa_pairs_with_refs(chunk_data, prompt, num_pairs=None):
     """Generate QA pairs from a text chunk with references"""
     chunk_text = chunk_data['text']
     
@@ -86,30 +89,11 @@ def generate_qa_pairs_with_refs(chunk_data, num_pairs=None):
     if num_pairs is None:
         num_pairs = config.get('generation', {}).get('num_pairs', 5)
     
-    prompt = f"""
-    Create {num_pairs} question-answer pairs from this text for LLM training.
-    
-    Rules:
-    1. Questions must be about important facts in the text
-    2. Answers must be directly supported by the text
-    3. Try to quote directly from the text when possible
-    4. Return JSON format only:
-    
-    [
-      {{
-        "question": "Question 1?",
-        "answer": "Answer 1."
-      }},
-      {{
-        "question": "Question 2?",
-        "answer": "Answer 2."
-      }}
-    ]
-    
-    Text:
-    {chunk_text}
-    """
-    
+    prompt = prompt.format(
+        chunk_text=chunk_text,
+        num_pairs=num_pairs
+    )
+
     try:
         response = client.chat.completions.create(
             model=api_config['model'],
@@ -207,57 +191,72 @@ def create_review_format(qa_pairs, output_base):
             f.write(f"- Chunk preview: *{ref['chunk_preview']}*\n\n")
             f.write("---\n\n")
 
+def get_prompt(config: Dict[str, Any], prompt_name: str) -> str:
+    """Get prompt by name"""
+    prompts = config.get('prompts', {})
+    if prompt_name not in prompts:
+        raise ValueError(f"Prompt '{prompt_name}' not found in configuration")
+    return prompts[prompt_name]
+
 def main():
-    # Input and output paths
-    input_file = "data/txt/DE000DDA0NU1.pdf.txt"
-    output_base = Path(input_file).stem
-    output_file = f"data/generated/{output_base}_qa_pairs_with_refs.json"
-    
-    # Store source document info
-    source_doc_info = {
-        "filename": Path(input_file).name,
-        "path": input_file,
-        "generated_from": str(Path(input_file).absolute())
-    }
-    
-    # Ensure output directories exist
-    Path("data/generated").mkdir(parents=True, exist_ok=True)
-    
-    print(f"Reading document from {input_file}...")
-    text = read_document(input_file)
-    
-    print(f"Document length: {len(text)} characters, {text.count(chr(10))} lines")
-    chunks = chunk_text_with_positions(text, source_document=source_doc_info["filename"])
-    print(f"Split into {len(chunks)} chunks")
-    
-    all_qa_pairs = []
-    
-    for i, chunk in enumerate(chunks):
-        print(f"Processing chunk {i+1}/{len(chunks)} (lines {chunk['line_start']}-{chunk['line_end']})...")
-        qa_pairs = generate_qa_pairs_with_refs(chunk)
-        all_qa_pairs.extend(qa_pairs)
-        print(f"  Generated {len(qa_pairs)} QA pairs")
-    
-    print(f"\nTotal QA pairs generated: {len(all_qa_pairs)}")
-    
-    # Save main output with references
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(all_qa_pairs, f, indent=2, ensure_ascii=False)
-    
-    print(f"Saved to {output_file}")
-    
-    # Create review formats
-    create_review_format(all_qa_pairs, output_base)
-    print(f"Created review files in data/review/")
-    
-    # Print summary statistics
-    print("\nSummary:")
-    print(f"- Total QA pairs: {len(all_qa_pairs)}")
-    print(f"- Average QA pairs per chunk: {len(all_qa_pairs) / len(chunks):.1f}")
-    print(f"- Review files created:")
-    print(f"  - data/review/{output_base}_with_refs.json (JSON with full references)")
-    print(f"  - data/review/{output_base}_review.csv (CSV for spreadsheet review)")
-    print(f"  - data/review/{output_base}_review.md (Markdown for easy reading)")
+    input_dir = Path("data/txt")
+    # load qa prompt from config
+    prompt = get_prompt(config, "qa_generation_v2")
+    print(f"Using prompt: {prompt}")
+    for input_file in tqdm(list(input_dir.iterdir())):
+        # Input and output paths
+        output_base = Path(input_file).stem
+        output_file = f"data/generated/{output_base}_qa_pairs_with_refs.json"
+
+        # Store source document info
+        source_doc_info = {
+            "filename": Path(input_file).name,
+            "path": input_file,
+            "generated_from": str(Path(input_file).absolute())
+        }
+
+        # Ensure output directories exist
+        Path("data/generated").mkdir(parents=True, exist_ok=True)
+
+        print(f"Reading document from {input_file}...")
+        text = read_document(input_file)
+        print(f"Document length: {len(text)} characters, {text.count(chr(10))} lines")
+
+        chunks = chunk_text_with_positions(text, source_document=source_doc_info["filename"])
+        if len(chunks) == 0:
+            print(f"No chunks generated from {input_file}. Skipping...")
+            continue
+        print(f"Split into {len(chunks)} chunks")
+
+        all_qa_pairs = []
+
+        for i, chunk in enumerate(chunks):
+            print(f"Processing chunk {i+1}/{len(chunks)} (lines {chunk['line_start']}-{chunk['line_end']})...")
+            qa_pairs = generate_qa_pairs_with_refs(chunk, prompt)
+            all_qa_pairs.extend(qa_pairs)
+            print(f"  Generated {len(qa_pairs)} QA pairs")
+
+        print(f"\nTotal QA pairs generated: {len(all_qa_pairs)}")
+
+        # Save main output with references
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(all_qa_pairs, f, indent=2, ensure_ascii=False)
+
+        print(f"Saved to {output_file}")
+
+        # Create review formats
+        create_review_format(all_qa_pairs, output_base)
+        print(f"Created review files in data/review/")
+
+        # Print summary statistics
+        print("\nSummary:")
+        print(f"- Total QA pairs: {len(all_qa_pairs)}")
+        print(f"- Average QA pairs per chunk: {len(all_qa_pairs) / len(chunks):.1f}")
+        print(f"- Review files created:")
+        print(f"  - data/review/{output_base}_with_refs.json (JSON with full references)")
+        print(f"  - data/review/{output_base}_review.csv (CSV for spreadsheet review)")
+        print(f"  - data/review/{output_base}_review.md (Markdown for easy reading)")
+
 
 if __name__ == "__main__":
     main()

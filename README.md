@@ -49,10 +49,13 @@ api-endpoint:
 
 ### 3. Prepare Your Documents
 
-Place your text documents in the `data/txt/` directory:
+Place your text documents in the `data/txt/` directory or alternatively if you have PDFs, place them in `data/pdf/` and run the conversion script:
 
 ```bash
-cp your-document.txt data/txt/
+for file in data/pdf/*.pdf do 
+  filename=$(basename "$file" .pdf)
+  pdf2txt.py $file > "data/txt/$filename.txt"
+done
 ```
 
 ### 4. Generate QA Pairs

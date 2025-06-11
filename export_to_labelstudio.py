@@ -5,63 +5,69 @@ Export QA pairs to Label Studio format for review
 import json
 from pathlib import Path
 import argparse
+from typing import List
 
-def convert_to_labelstudio_format(qa_pairs_file, original_doc_file):
+
+def convert_to_labelstudio_format(qa_pairs_files: List[Path], original_doc_files: List[Path]):
     """Convert QA pairs with references to Label Studio format"""
-    
-    # Read QA pairs
-    with open(qa_pairs_file, 'r', encoding='utf-8') as f:
-        qa_pairs = json.load(f)
-    
-    # Read original document
-    with open(original_doc_file, 'r', encoding='utf-8') as f:
-        full_text = f.read()
-    
-    # Get source document name
-    doc_name = Path(original_doc_file).name
-    
+
     # Create Label Studio tasks
     tasks = []
-    
-    for i, qa in enumerate(qa_pairs):
-        ref = qa.get('reference', {})
-        
-        # Extract the relevant chunk from the original document
-        chunk_start = ref.get('char_start', 0)
-        chunk_end = ref.get('char_end', len(full_text))
-        context_chunk = full_text[chunk_start:chunk_end]
-        
-        # Create a task for Label Studio
-        task = {
-            "id": i + 1,
-            "data": {
-                # Main data for review
-                "question": qa['question'],
-                "answer": qa['answer'],
-                "context": context_chunk,
-                
-                # Source document info
-                "source_document": doc_name,
-                "document_path": str(original_doc_file),
-                
-                # Metadata
-                "chunk_id": ref.get('chunk_id', ''),
-                "line_range": f"{ref.get('line_start', '')}-{ref.get('line_end', '')}",
-                "char_range": f"{chunk_start}-{chunk_end}",
-                
-                # For display
-                "qa_pair_id": f"QA_{i+1}",
-                "chunk_preview": ref.get('chunk_preview', '')
+
+    i = 0
+    for qa_pairs_file, original_doc_file in zip(qa_pairs_files, original_doc_files):
+        # Read QA pairs
+        with open(qa_pairs_file, 'r', encoding='utf-8') as f:
+            qa_pairs = json.load(f)
+
+        # Read original document
+        with open(original_doc_file, 'r', encoding='utf-8') as f:
+            full_text = f.read()
+
+        # Get source document name
+        doc_name = Path(original_doc_file).name
+
+        for qa in qa_pairs:
+            i += 1
+            ref = qa.get('reference', {})
+
+            # Extract the relevant chunk from the original document
+            chunk_start = ref.get('char_start', 0)
+            chunk_end = ref.get('char_end', len(full_text))
+            context_chunk = full_text[chunk_start:chunk_end]
+
+            # Create a task for Label Studio
+            task = {
+                "id": i,
+                "data": {
+                    # Main data for review
+                    "question": qa['question'],
+                    "answer": qa['answer'],
+                    "context": context_chunk,
+
+                    # Source document info
+                    "source_document": doc_name,
+                    "document_path": str(original_doc_file),
+
+                    # Metadata
+                    "chunk_id": ref.get('chunk_id', ''),
+                    "line_range": f"{ref.get('line_start', '')}-{ref.get('line_end', '')}",
+                    "char_range": f"{chunk_start}-{chunk_end}",
+
+                    # For display
+                    "qa_pair_id": f"QA_{i}",
+                    "chunk_preview": ref.get('chunk_preview', '')
+                }
             }
-        }
-        
-        tasks.append(task)
-    
+
+            tasks.append(task)
+
     return tasks
+
 
 def create_labelstudio_config():
     """Create Label Studio labeling configuration"""
-    
+
     config = """
 <View>
   <Header value="QA Pair Review" />
@@ -134,28 +140,33 @@ def create_labelstudio_config():
 """
     return config
 
-def create_labelstudio_project_files(qa_pairs_file, original_doc_file, output_dir="data/labelstudio"):
+
+def create_labelstudio_project_files(
+        qa_pairs_files: List[Path],
+        original_doc_files: List[Path],
+        output_dir: Path
+):
     """Create all necessary files for Label Studio import"""
-    
+
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
     # Convert to Label Studio format
     print("Converting QA pairs to Label Studio format...")
-    tasks = convert_to_labelstudio_format(qa_pairs_file, original_doc_file)
-    
+    tasks = convert_to_labelstudio_format(qa_pairs_files, original_doc_files)
+
     # Save tasks
     tasks_file = output_path / "qa_review_tasks.json"
     with open(tasks_file, 'w', encoding='utf-8') as f:
         json.dump(tasks, f, indent=2, ensure_ascii=False)
     print(f"Saved {len(tasks)} tasks to {tasks_file}")
-    
+
     # Save labeling configuration
     config_file = output_path / "label_config.xml"
     with open(config_file, 'w', encoding='utf-8') as f:
         f.write(create_labelstudio_config())
     print(f"Saved labeling configuration to {config_file}")
-    
+
     # Create instructions file
     instructions_file = output_path / "REVIEWER_GUIDE.md"
     with open(instructions_file, 'w', encoding='utf-8') as f:
@@ -238,43 +249,55 @@ After completing reviews:
 Contact the project maintainer or refer to the main README for technical details.
 """)
     print(f"Saved instructions to {instructions_file}")
-    
+
     return output_path
+
 
 def main():
     parser = argparse.ArgumentParser(description='Export QA pairs to Label Studio format')
-    parser.add_argument('--qa-file', default='data/generated/DE000DDA0NU1.pdf_qa_pairs_with_refs.json',
-                        help='Path to QA pairs JSON file with references')
-    parser.add_argument('--doc-file', default='data/txt/DE000DDA0NU1.pdf.txt',
-                        help='Path to original document')
+    parser.add_argument('--qa-dir', default='data/generated',
+                        help='Path to directory containing JSON files with QA pairs', )
+    parser.add_argument('--doc-dir', default='data/txt',
+                        help='Path to directory containing original documents', )
     parser.add_argument('--output-dir', default='data/labelstudio',
                         help='Output directory for Label Studio files')
-    
+
     args = parser.parse_args()
-    
+
     # Check if files exist
-    if not Path(args.qa_file).exists():
-        print(f"Error: QA file not found: {args.qa_file}")
-        print("Please run generate_qa.py first")
+    if not Path(args.qa_dir).exists():
+        print(f"Error: QA qa_dir not found: {args.qa_dir}")
         return
-    
-    if not Path(args.doc_file).exists():
-        print(f"Error: Document file not found: {args.doc_file}")
+    qa_files = list(Path(args.qa_dir).glob('*.json'))
+    if not qa_files:
+        print(f"Error: No QA files found in {args.qa_dir}")
         return
-    
+
+    if not Path(args.doc_dir).exists():
+        print(f"Error: Document directory not found: {args.doc_dir}")
+        return
+    # make sure that corresponding documents exist
+    doc_files = []
+    for qa_file in qa_files:
+        doc_name = qa_file.stem.split('_')[0]  # Assuming the document name is the prefix of the QA file
+        doc_file = list(Path(args.doc_dir).glob(f'{doc_name}*'))
+        assert len(doc_file) == 1, f"Expected exactly one document for {qa_file}, found {len(doc_file)}"
+        doc_files.append(doc_file[0])
+
     # Create Label Studio files
     output_path = create_labelstudio_project_files(
-        args.qa_file,
-        args.doc_file,
+        qa_files,
+        doc_files,
         args.output_dir
     )
-    
+
     print(f"\n✅ Label Studio files created successfully!")
     print(f"📁 Output directory: {output_path}")
     print(f"\nNext steps:")
     print(f"1. Start Label Studio: make start-labelstudio")
     print(f"2. Open http://localhost:8080 in your browser")
     print(f"3. Follow the instructions in {output_path}/REVIEWER_GUIDE.md")
+
 
 if __name__ == "__main__":
     main()
