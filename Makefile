@@ -31,6 +31,13 @@ setup:
 	mkdir -p data/{txt,generated,labelstudio,reviewed} configs
 	@echo "✓ Setup complete. Copy configs/config.example.yaml to configs/config.yaml"
 
+# Convert pdfs to markdown
+.PHONY: convert-pdfs
+convert-pdfs:
+	@echo "Converting PDFs to Markdown..."
+	$(PYTHON) convert_pdfs.py
+	@echo "✓ Conversion complete. Check data/txt/ for markdown files."
+
 
 # Generate QA pairs with source references
 .PHONY: qa-pairs
@@ -38,11 +45,17 @@ qa-pairs:
 	@echo "Generating QA pairs with source references..."
 	$(PYTHON) generate_qa.py
 
+# Filter generated QA pairs
+.PHONY: filter-qa-pairs
+filter-qa-pairs:
+	@echo "Filtering generated QA pairs..."
+	$(PYTHON) filter_qa_pairs.py
+	@echo "✓ Filtering complete. Check data/filtered for filtered QA pairs."
 
 # Clean generated files
 .PHONY: clean
 clean:
-	rm -rf data/generated/* data/labelstudio/* data/reviewed/* data/review/*
+	rm -rf data/generated/* data/labelstudio/* data/reviewed/* data/review/* data/filtered/* data/rejected/*
 	@echo "✓ Cleaned generated files"
 
 

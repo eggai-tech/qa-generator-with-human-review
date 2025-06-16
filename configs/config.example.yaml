@@ -75,20 +75,26 @@ prompts:
       - What are the key financial metrics for a specific company in a given quarter?
 
     Focus on the specific details of a particular issue of securities, including its price, terms, and conditions.
+    Avoid ambiguous and vague questions, which lacks specificity, e.g. "What is the revenue?".
 
     Create {num_pairs} high-quality question-answer pairs based ONLY on this text.
 
     Rules:
     1. Questions must be about important facts in the text
     2. Answers must be directly supported by the text
-    3. Add some context to the question such as company names, financial instruments, etc.
-    Return ONLY valid JSON formatted as:
+    3. Add some context to the question such as company names, financial instruments, ISINs, etc.
+    4. Write questions and answers in the language of the text.
+    4. Return JSON format only:
+
     [
-      {
-        "question": "Detailed financial question?",
-        "answer": "Precise financial answer."
-      },
-      ...
+      {{
+        "question": "Question 1?",
+        "answer": "Answer 1."
+      }},
+      {{
+        "question": "Question 2?",
+        "answer": "Answer 2."
+      }}
     ]
 
     Text:

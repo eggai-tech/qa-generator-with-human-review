@@ -125,6 +125,7 @@ def generate_qa_pairs_with_refs(chunk_data, prompt, num_pairs=None):
                 'line_start': chunk_data['line_start'],
                 'line_end': chunk_data['line_end'],
                 'chunk_preview': chunk_data['preview'],
+                'chunk_text': chunk_text,
                 'source_document': chunk_data.get('source_document', '')
             }
             

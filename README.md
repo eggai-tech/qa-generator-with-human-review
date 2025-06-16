@@ -49,13 +49,10 @@ api-endpoint:
 
 ### 3. Prepare Your Documents
 
-Place your text documents in the `data/txt/` directory or alternatively if you have PDFs, place them in `data/pdf/` and run the conversion script:
+Place your text documents in the `data/txt/` directory or alternatively if you have PDFs, place them in `data/pdf/` and run the conversion to markdown:
 
 ```bash
-for file in data/pdf/*.pdf do 
-  filename=$(basename "$file" .pdf)
-  pdf2txt.py $file > "data/txt/$filename.txt"
-done
+make convert-pdfs
 ```
 
 ### 4. Generate QA Pairs
@@ -63,6 +60,16 @@ done
 ```bash
 make qa-pairs
 ```
+This will process all the documents in `data/txt` and save the generated QA pairs as json files in `data/generated`
+
+### 5. Filter QA Pairs based on Quality metrics
+
+```bash
+make filter-qa-pairs
+```
+
+This will filter the generated QA pairs based on quality metrics [faithfulness, answer relevance, context accuracy, context recall](https://docs.ragas.io/en/v0.1.21/concepts/metrics/) and save the filtered pairs in `data/filtered`.
+
 
 ## Human Review Process
 
@@ -88,6 +95,7 @@ make process-reviews EXPORT_FILE=path/to/export.json
 ```bash
 make setup              # Initial setup
 make qa-pairs           # Generate QA pairs
+make filter-qa-pairs    # Filter QA pairs based on quality
 make export-labelstudio # Export for review
 make start-labelstudio  # Start Label Studio
 make process-reviews EXPORT_FILE=<file>  # Process results
