@@ -255,7 +255,7 @@ Contact the project maintainer or refer to the main README for technical details
 
 def main():
     parser = argparse.ArgumentParser(description='Export QA pairs to Label Studio format')
-    parser.add_argument('--qa-dir', default='data/generated',
+    parser.add_argument('--qa-dir', default='data/filtered',
                         help='Path to directory containing JSON files with QA pairs', )
     parser.add_argument('--doc-dir', default='data/txt',
                         help='Path to directory containing original documents', )
